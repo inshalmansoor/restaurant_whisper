@@ -1,0 +1,20 @@
+version: "3.12"
+services:
+  app:
+    build: .
+    image: restaurant_whisper:latest
+    restart: always
+    environment:
+      - PYTHONUNBUFFERED=1
+    ports:
+      - "8000:8000"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+    # Newer docker-compose supports 'gpus' key:
+    # gpus: all
+    runtime: nvidia
+    stdin_open: false
+    tty: false
