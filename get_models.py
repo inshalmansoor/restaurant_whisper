@@ -4,6 +4,7 @@ from typing import Optional, Tuple, Any
 from huggingface_hub import snapshot_download
 import whisper
 from gtts import gTTS  # only used if you want to optionally warm TTS
+import torch
 
 MODEL_MARKERS = [
     "pytorch_model.bin",
@@ -151,3 +152,94 @@ def prepare_and_load_whisper(model_name: str = "large-v3",
     except Exception:
         # fallback: ask whisper to download/load into the root
         return whisper.load_model(model_name, download_root=str(target_root))
+
+def prepare_and_load_whisper_with_gpu(
+    model_name: str = "large",
+    target_root: Path | str = Path("models/whisper"),
+    force: bool = False,
+    fallback_smaller: str | None = "base"
+):
+    """
+    Ensure whisper files exist (calls ensure_model_dir) and load the whisper model.
+    Use GPU if torch.cuda.is_available(); otherwise CPU. On OOM or load failure, fall back to CPU
+    or to `fallback_smaller` model (if provided).
+    Returns the loaded whisper model.
+    """
+    target_root = Path(target_root)
+    target_root.mkdir(parents=True, exist_ok=True)
+
+    # Ensure files/dirs exist (your ensure_model_dir should handle whisper_name special-case)
+    # If your ensure_model_dir returns (path, model) as in earlier helper, use that.
+    try:
+        model_path, maybe_model = ensure_model_dir("whisper", target_root, force, whisper_name=model_name)
+    except Exception as e:
+        print(f"[!] ensure_model_dir failed for whisper {model_name}: {e}")
+        # continue — we'll still try to load via whisper.load_model which will download if needed
+
+    # choose device
+    use_cuda = torch.cuda.is_available()
+    device = "cuda" if use_cuda else "cpu"
+    print(f"[i] Torch CUDA available: {use_cuda}. Attempting to load whisper on device='{device}'")
+
+    # If ensure_model_dir already returned a loaded model, try to move it to device
+    if 'maybe_model' in locals() and maybe_model is not None:
+        model = maybe_model
+        try:
+            model.to(device)
+            print(f"[i] Moved existing Whisper model to {device}")
+            return model
+        except Exception as e:
+            print(f"[!] Could not move existing model to {device}: {e} — continuing to (re)load")
+
+    # Try to load on chosen device (prefer whisper API device argument)
+    try:
+        # whisper.load_model accepts device= on most versions
+        try:
+            model = whisper.load_model(model_name, device=device, download_root=str(target_root))
+        except TypeError:
+            # older whisper versions may not accept device param -> load then .to(device)
+            model = whisper.load_model(model_name, download_root=str(target_root))
+            try:
+                model.to(device)
+            except Exception:
+                pass
+        print(f"[✓] Loaded Whisper '{model_name}' on {device}")
+        return model
+
+    except RuntimeError as e:
+        # common case: CUDA OOM or driver problem
+        print(f"[!] RuntimeError loading Whisper on {device}: {e}")
+
+        # if we attempted GPU and failed, try CPU fallback
+        if use_cuda:
+            print("[i] Falling back to CPU load of the same model...")
+            try:
+                model = whisper.load_model(model_name, device="cpu", download_root=str(target_root))
+                print(f"[✓] Loaded Whisper '{model_name}' on cpu")
+                return model
+            except Exception as e2:
+                print(f"[!] CPU load also failed: {e2}")
+
+        # if provided, try a smaller model as last resort
+        if fallback_smaller and fallback_smaller != model_name:
+            try:
+                print(f"[i] Attempting to load a smaller model '{fallback_smaller}' on CPU")
+                model = whisper.load_model(fallback_smaller, device="cpu", download_root=str(target_root))
+                print(f"[✓] Loaded smaller Whisper model '{fallback_smaller}' on cpu")
+                return model
+            except Exception as e3:
+                print(f"[!] Failed to load fallback smaller model '{fallback_smaller}': {e3}")
+
+        # final attempt: raise to let caller decide (or load without device param)
+        raise
+
+    except Exception as e:
+        # catch-all: try CPU
+        print(f"[!] Unexpected error loading Whisper on {device}: {e}")
+        try:
+            model = whisper.load_model(model_name, device="cpu", download_root=str(target_root))
+            print(f"[✓] Loaded Whisper '{model_name}' on cpu (after unexpected error)")
+            return model
+        except Exception as e2:
+            print(f"[✗] Final fallback load failed: {e2}")
+            raise

@@ -6,7 +6,7 @@ from fastapi import FastAPI, HTTPException, BackgroundTasks, WebSocket, WebSocke
 from pydantic import BaseModel
 from state import MyState
 from knowledge_base import setup_retriever, load_documents
-from get_models import prepare_and_load_whisper
+from get_models import prepare_and_load_whisper, prepare_and_load_whisper_with_gpu
 from langchain_core.messages import HumanMessage, SystemMessage
 from graph_builder import compiled
 from pathlib import Path
@@ -77,14 +77,14 @@ async def startup_event():
 
     whisper_model = await loop.run_in_executor(
         None,
-        prepare_and_load_whisper,
-        "large-v3",                  # model_name
-        Path("models/whisper"),   # target_root
-        False                     # force (set True to force re-download)
+        prepare_and_load_whisper_with_gpu,
+        "large",                   # model_name
+        Path("models/whisper"),    # target_root
+        False,                     # force (True to force re-download)
+        "base"                     # fallback_smaller (optional)
     )
     app.state.whisper_model = whisper_model
-    print("[i] Whisper model available on app.state.whisper_model")
-
+    print("[i] Whisper model loaded and stored on app.state.whisper_model")
     # Attach to app state
     app.state.docs = docs
     app.state.retriever = retriever
