@@ -2,6 +2,7 @@ from typing import Dict, List, TypedDict, Annotated
 import operator
 from langchain_core.messages import BaseMessage
 
+# Define state schema with proper annotations
 class MyState(TypedDict):
     messages: Annotated[List[BaseMessage], operator.add]
     input: str
@@ -11,4 +12,5 @@ class MyState(TypedDict):
     order: Dict
     customer: Dict
     booking: Dict
+    complaint: Dict
     next: str

@@ -30,9 +30,15 @@ def start_node(state: MyState) -> Dict:
 
     return {
         "processed_queries": state["processed_queries"] + [current_query],
-        "query_responses": state["query_responses"] + [str(response)],
+        "query_responses": state["query_responses"] + [str(response.content)],
         "next": "supervisor"
     }
+
+def safe_float(v):
+    try:
+        return float(v) if v is not None else None
+    except Exception:
+        return None
 
 def order_complete_node(state: dict) -> Dict:
     """Handles order completion: update an existing order (if order_id present)
@@ -94,7 +100,7 @@ def order_complete_node(state: dict) -> Dict:
                               status="incomplete",
                               total=safe_int(order_total)).save()
         # retrieve saved doc
-        order_doc = OrderDoc.objects(id=order_doc.id).first()
+        order_doc = OrderDoc.objects(order_id=order_doc.id).first()
         for item_name, vals in (order_items or {}).items():
             qty = vals[0] if len(vals) > 0 else None
             price = vals[1] if len(vals) > 1 else None
@@ -135,6 +141,8 @@ def order_checker_node(state: MyState) -> Dict:
     # Get menu context (assuming you have this available)
     menu_context = get_context(current_query)  # Replace with your actual menu retrieval
 
+    print(f"Menu context: {menu_context}")
+
     order_checker = OrderItemChecker()
     response = order_checker.execute_query(
         query=current_query,
@@ -142,9 +150,14 @@ def order_checker_node(state: MyState) -> Dict:
         order= order,
         conversation_history=conversation_history
     )
-
-    remove = response.remove
-    add = response.add
+    available = response.available
+    not_available = response.not_available
+    if not_available:
+        res = f"{', '.join(not_available)} are not available"
+    else:
+        res = ""
+    remove = available.remove if hasattr(available, 'remove') else None
+    add = available.add if hasattr(available, 'add') else None
     # ensure items dict exists
     order_items = order.setdefault("items", {})
 
@@ -197,7 +210,7 @@ def order_checker_node(state: MyState) -> Dict:
 
     return {
         "processed_queries": state["processed_queries"],
-        "query_responses": state["query_responses"],
+        "query_responses": state["query_responses"] + [res],
         "order": order,
         "next": "order_repeater"
     }
@@ -264,6 +277,6 @@ def order_repeater_node(state: MyState) -> Dict:
 
     return {
         "processed_queries": state["processed_queries"] + [current_query],
-        "query_responses": state["query_responses"] + [str(response)],
+        "query_responses": state["query_responses"] + [response.content],
         "next": "supervisor"
     }

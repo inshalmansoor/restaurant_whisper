@@ -139,6 +139,8 @@ class BookingCancellationOutput(BaseModel):
         description="'complete' if enough info to cancel, else 'incomplete'"
     )
 
+#COMPLAINT
+# ---------------- Complaint Classification Schema ---------------- #
 class ComplaintClassification(BaseModel):
     classification: Literal["Complaint", "Finish"] = Field(
         description="Complaint = ongoing, Finish = complaint completed"
@@ -151,3 +153,25 @@ class ComplaintUpdateOutput(BaseModel):
     response: str = Field(
         description="Follow-up question. If complaint updated, ask if they want to add more. If still empty, ask for details."
     )
+
+class SupervisorDecision(BaseModel):
+    next_node: Literal[
+        "information",
+        "order_supervisor",
+        "customer_checker",
+        "booking_supervisor",
+        "complaint_supervisor",
+    ]
+
+class OrderSupervisorDecision(BaseModel):
+    next_node: Literal["order_checker", "order_repeater", "order_start", "order_complete", "order_cancel"]
+
+class BookingSupervisorDecision(BaseModel):
+    next_node: Literal["booking_checker", "booking_repeater", "booking_start", "booking_complete", "booking_cancel"]
+
+class ComplaintSupervisorDecision(BaseModel):
+    next_node: Literal[
+        "complaint_customer_check",
+        "complaint_classifier",
+        "complaint_save"
+    ]

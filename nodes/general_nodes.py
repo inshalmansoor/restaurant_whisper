@@ -6,6 +6,7 @@ from typing import Dict
 
 
 # NODE DEFINITIONS
+# NODE DEFINITIONS
 def refine_node(state: MyState) -> Dict:
     """Refines the user query for better understanding."""
     print("\n" + "="*80)
@@ -74,9 +75,9 @@ def information_node(state: MyState) -> Dict:
 
     conversation_history = get_conversation_context(state["messages"])
 
-    information_processor = Information_Retrieval()
-
     context = get_context(current_query)
+
+    information_processor = Information_Retrieval()
 
     response = information_processor.execute_query(
         query=current_query,
@@ -84,11 +85,11 @@ def information_node(state: MyState) -> Dict:
         context=context
     )
 
-    print(f"RESPONSE: {response}\n")
+    print(f"RESPONSE: {response.content}\n")
 
     return {
         "processed_queries": state["processed_queries"] + [current_query],
-        "query_responses": state["query_responses"] + [str(response)],
+        "query_responses": state["query_responses"] + [str(response.content)],
         "next": "supervisor"
     }
 

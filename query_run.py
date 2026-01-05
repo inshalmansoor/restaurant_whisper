@@ -2,6 +2,7 @@ from langchain.chat_models import init_chat_model
 from langchain_classic.output_parsers import PydanticOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from chat_model import chat_model
+from datetime import datetime
 
 class QueryRun:
     output_schema = None   # subclasses override this
@@ -13,7 +14,7 @@ class QueryRun:
         else:
             cls.output_parser = None
 
-    def execute_query(self, query, conversation_history, context="", order="", customer_details="", booking="", complain="", parser=None):
+    def execute_query(self, query, conversation_history="", context="", order="", customer_details="", booking="", current_complain="", parser=None):
         # Default parser comes from subclass
         parser = parser or self.__class__.output_parser
 
@@ -34,9 +35,10 @@ class QueryRun:
             "conversation_history": conversation_history,
             "context": context,
             "order": order,
-            "customer_details": customer_details,
+            "customer": customer_details,
             "booking": booking,
-            "current_complaint": complain,
+            "current_complaint": current_complain,
+            "current_date": datetime.now().strftime("%Y-%m-%d"),
         }
         if parser:
             inputs["format_instructions"] = parser.get_format_instructions()

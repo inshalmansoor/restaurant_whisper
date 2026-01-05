@@ -30,7 +30,7 @@ def start_node_booking(state: MyState) -> Dict:
 
     return {
         "processed_queries": state["processed_queries"] + [current_query],
-        "query_responses": state["query_responses"] + [str(response)],
+        "query_responses": state["query_responses"] + [str(response.content)],
         "next": "supervisor"
     }
 
@@ -127,6 +127,7 @@ def booking_checker_node(state: MyState) -> Dict:
     print(f"PROCESSING: {current_query}")
 
     conversation_history = get_conversation_context(state.get("messages", []))
+    customer = state.get("customer")
 
     booking = state.get("booking", {}) or {}
 
@@ -135,13 +136,14 @@ def booking_checker_node(state: MyState) -> Dict:
     result = booking_manager.execute_query(
         query=current_query,
         booking=booking,
+        customer_details=customer,
         conversation_history=conversation_history
     )
 
     # result should follow BookingDetailOutput: { "details": {...}, "response": "...", "info_status": "complete"/"incomplete" }
-    details = result.get("details", {}) if isinstance(result, dict) else {}
-    response_text = result.get("response", "") if isinstance(result, dict) else ""
-    info_status = result.get("response", "") if isinstance(result, dict) else "incomplete"
+    details = result.details
+    response_text = result.response
+    info_status = result.info_status
 
     # If details is a pydantic model, convert to dict
     if hasattr(details, "dict"):
@@ -156,10 +158,10 @@ def booking_checker_node(state: MyState) -> Dict:
     if info_status == "incomplete":
         next = "supervisor"
     elif info_status == "complete":
-        next = ""
+        next = "booking_repeater"
 
     return {
-        "processed_queries": state.get("processed_queries", []),
+        "processed_queries": state.get("processed_queries", []) + [current_query],
         "query_responses": state.get("query_responses", []) + [response_text],
         "booking": state["booking"],
         "next": next
@@ -218,6 +220,6 @@ def booking_repeater_node(state: MyState) -> Dict:
 
     return {
         "processed_queries": state["processed_queries"] + [current_query],
-        "query_responses": state["query_responses"] + [str(response)],
+        "query_responses": state["query_responses"] + [str(response.content)],
         "next": "supervisor"
     }

@@ -40,7 +40,7 @@ def complaint_update_node(state: MyState) -> Dict:
 
     updater = UpdateComplain()
     result = updater.execute_query(
-        current_complaint=state.get("complaint", ""),
+        current_complain=state.get("complaint", ""),
         query=state["input"]
     )
 

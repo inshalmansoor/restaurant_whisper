@@ -46,7 +46,6 @@ from nodes.complaint_nodes import (
 )
 
 from state import MyState
-
 # Create workflow
 workflow = StateGraph(MyState)
 
@@ -71,7 +70,7 @@ workflow.add_node("supervisor", supervisor_node)
 workflow.add_node("order_supervisor", order_supervisor_node)
 #workflow.add_node("customer_supervisor", customer_supervisor_node)
 workflow.add_node("booking_supervisor", booking_supervisor_node)
-workflow.add_node("compaint_supervisor", complaint_supervisor_node)
+workflow.add_node("complaint_supervisor", complaint_supervisor_node)
 
 workflow.add_node("information", information_node)
 workflow.add_node("customer_details", customer_details_node)
@@ -123,6 +122,11 @@ workflow.add_edge("booking_complete", "booking_repeater")
 workflow.add_edge("booking_repeater", "supervisor")
 workflow.add_edge("booking_cancel", "supervisor")
 
+# Compaint Edges
+workflow.add_edge("complaint_supervisor", "customer_details")
+workflow.add_edge("complaint_save", "supervisor")
+workflow.add_edge("complaint_update", "supervisor")
+
 workflow.add_edge("information", "supervisor")
 
 # Customer Edges
@@ -136,7 +140,7 @@ workflow.add_edge("get_details_from_db", "supervisor")
 workflow.add_conditional_edges(
     "supervisor",
     supervisor_routing_fn,
-    ["information", "order_supervisor", "customer_checker", "booking_supervisor", END]  # Changed "order" to "order_supervisor"
+    ["information", "order_supervisor", "customer_checker", "booking_supervisor", "complaint_supervisor", END]  # Changed "order" to "order_supervisor"
 )
 
 # Conditional routing from order_supervisor
@@ -155,7 +159,29 @@ workflow.add_conditional_edges(
         "booking_repeater": "booking_repeater",  # ADD
         "booking_cancel": "booking_cancel",
         "get_customer": "get_customer",
+        "complaint_customer_check": "complaint_customer_check",
+        "complaint_classifier": "complaint_classifier",
+        "complaint_save":"complaint_save",
         "supervisor": "supervisor"
+    }
+)
+
+#Conditional routing from customer_checker
+workflow.add_conditional_edges(
+    "complaint_customer_check",
+    general_routing_fn,
+    {
+        "complaint_classifier":"complaint_classifier",
+        "get_customer": "get_customer"
+    }
+)
+
+workflow.add_conditional_edges(
+    "complaint_classifier",
+    general_routing_fn,
+    {
+        "complaint_save":"complaint_save",
+        "complaint_update": "complaint_update"
     }
 )
 
